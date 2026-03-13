@@ -1,0 +1,124 @@
+esphome:
+  name: smart-plug
+  friendly_name: GreenPlug Guardian
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+# WiFi Configuration
+wifi:
+  ssid: "YOUR_WIFI_NAME"
+  password: "YOUR_WIFI_PASSWORD"
+  
+  # Fallback hotspot if wifi fails
+  ap:
+    ssid: "SmartPlug Fallback"
+    password: "greenplug123"
+
+captive_portal:
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "your-api-encryption-key"
+
+# Enable OTA updates
+ota:
+  password: "your-ota-password"
+
+# UART for PZEM-004T Energy Monitor
+uart:
+  rx_pin: GPIO16
+  tx_pin: GPIO17
+  baud_rate: 9600
+  stop_bits: 1
+
+# -----------------------------------------------
+# RELAY - Controls the appliance ON/OFF
+# -----------------------------------------------
+switch:
+  - platform: gpio
+    pin: GPIO26
+    name: "Smart Plug Switch"
+    id: relay
+    icon: "mdi:power-socket-in"
+    restore_mode: RESTORE_DEFAULT_OFF
+
+# -----------------------------------------------
+# PZEM-004T - Energy Monitoring
+# -----------------------------------------------
+sensor:
+  - platform: pzemac
+    current:
+      name: "Current"
+      unit_of_measurement: "A"
+    voltage:
+      name: "Voltage"
+      unit_of_measurement: "V"
+    energy:
+      name: "Energy"
+      unit_of_measurement: "kWh"
+    power:
+      name: "Power"
+      unit_of_measurement: "W"
+    frequency:
+      name: "Frequency"
+      unit_of_measurement: "Hz"
+    power_factor:
+      name: "Power Factor"
+    update_interval: 10s
+
+  # -----------------------------------------------
+  # DHT22 - Temperature & Humidity
+  # -----------------------------------------------
+  - platform: dht
+    pin: GPIO4
+    model: DHT22
+    temperature:
+      name: "Temperature"
+    humidity:
+      name: "Humidity"
+    update_interval: 30s
+
+# -----------------------------------------------
+# PHYSICAL BUTTON - Manual ON/OFF on the plug
+# -----------------------------------------------
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO0
+      mode: INPUT_PULLUP
+      inverted: true
+    name: "Manual Button"
+    on_press:
+      then:
+        - switch.toggle: relay
+
+# -----------------------------------------------
+# LED STATUS INDICATOR
+# -----------------------------------------------
+light:
+  - platform: status_led
+    name: "Status LED"
+    pin: GPIO2
+
+# -----------------------------------------------
+# AUTOMATIONS
+# -----------------------------------------------
+# Auto turn off if power exceeds 3000W (overload protection)
+interval:
+  - interval: 5s
+    then:
+      - if:
+          condition:
+            sensor.in_range:
+              id: relay
+              above: 3000
+          then:
+            - switch.turn_off: relay
+            - logger.log: "Overload detected! Relay turned off."
